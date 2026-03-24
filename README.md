@@ -4,6 +4,9 @@ Built an end-to-end ML pipeline to predict **Quality of Sleep** and identify key
 ## View Full Project
 [Full Project](https://rpubs.com/melissafrankel/1413578)
 
+## View Codebook
+[Codebook](
+
 ## Overview
 The goal of this project is to identify key drivers of sleep quality and evaluate whether making changes in lifestyle or health factors can meaningfully improve it. 
 
