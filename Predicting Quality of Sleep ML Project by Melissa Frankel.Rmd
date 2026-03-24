@@ -1,0 +1,1100 @@
+---
+title: |
+  <span style="font-size:42px;">Predicting Quality of Sleep</span><br>
+  <span style="font-size:22px; color:gray;">Using Health and Lifestyle Factors</span><br>
+author: "Melissa Frankel"
+date:
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: false
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE, 
+  warning = FALSE,
+  fig.align = "center",
+  fig.width = 6.5,
+  fig.height = 4.2,
+  dpi = 300)
+```
+
+# Table of Contents
+
+::: {style="font-size: 12px;"}
+[**Introduction**](#introduction)
+
+[Why Sleep Quality?]
+
+[Project Roadmap]
+
+[Data Description]
+
+[**Exploring our Data**](#exploring_our_data)
+
+[Loading Packages and Data]
+
+[Checking for Missing Data]
+
+[**Visual Exploratory Data Analysis (EDA)**](#visual-exploratory-data-analysis-eda)
+
+[Distribution of Quality of Sleep (Histogram)](#distribution-of-quality-of-sleep-histogram)
+
+[Variable Correlation Plot]
+
+[Sleep Duration vs. Quality of Sleep (Scatterplot)](#sleep-duration-vs.-quality-of-sleep-scatterplot)
+
+[Stress Level vs. Quality of Sleep (Scatterplot)](#stress-level-vs.-quality-of-sleep-scatterplot)
+
+[Sleep Disorder vs. Quality of Sleep (Percent Stacked Bar Chart)](#sleep-disorder-vs.-quality-of-sleep-percent-stacked-bar-chart)
+
+[**Setting up for the Models**](#setting_up_for_our_models)
+
+[Data Split]
+
+[Recipe Creation]
+
+[K-Fold Cross-Validation]
+
+[**Model Building**](#model_building)
+
+[Linear Regression]
+
+[Elastic Net Regression]
+
+[Decision Tree]
+
+[Random Forest]
+
+[Boosted Tree]
+
+[**Model Results**](#model_results)
+
+[Model Comparison and Evaluation]
+
+[Compare Boosted Trees and Random Forest Models Across Folds]
+
+[Results of the Best Models]
+
+[Fitting to Training Data]
+
+[Testing the Models]
+
+[**Determine the True Best Model**](#determine_the_true_best_model)
+
+[Predicted Quality of Sleep vs. Actual Quality of Sleep Plot]
+
+[Variable Importance Plot]
+
+[**Conclusion**](#conclusion)
+
+[**References**](#references)
+:::
+
+# Introduction {#introduction}
+
+The purpose of this project is to build a machine learning model that predicts `Quality of Sleep` using various health and lifestyle factors. We will be using the `Sleep Health and Lifestyle Dataset`, and carrying out multiple regression techniques to obtain the most accurate model for this predictive regression problem.
+
+### Why Sleep Quality?
+
+From previous research, most people know the fundamental role sleep plays in their physical health, cognitive performance, and overall well-being. This project is motivated by the fact that many people, including myself, struggle with getting good sleep, and want to understand if there are ways they can improve their quality of sleep.
+
+The relationships between lifestyle factors such as stress levels, physical activity, and many physiological factors are complex, and it is often difficult to determine which variables have the strongest influence on sleep outcomes. Lucky for us, machine learning models provide a way to examine these relationships simultaneously and identify patterns that may help explain variation in sleep quality across individuals. If we can better understand this variation and the relationships between variables, then we can make changes in our lives to improve our quality of sleep, and thus improve our quality of life.
+
+### Project Roadmap
+
+This project is guided by the following questions:
+
+-   Are some individuals predisposed to obtaining higher quality sleep?
+
+-   Are there lifestyle changes that can be made to induce better sleep quality?
+
+-   Is `Quality of Sleep` strongly associated with `Sleep Duration`?
+
+To answer these questions, we will analyze the continuous response variable, `Quality of Sleep`, as a supervised regression problem. Finding the best model requires us to do some initial data cleaning and manipulation, then perform some exploratory data analysis (EDA), split our training and testing data, set folds for 5-fold cross-validation, and then model the training data using Linear Regression, Elastic Net Regression, Decision Tree, Random Forest, and Boosted Tree models. Finally, we will see which of these machine learning models performs the strongest so we can use it on our testing data and analyze the effectiveness of that model.
+
+```{r, echo = FALSE, out.width="80%"}
+knitr::include_graphics("high_quality_sleep.png")
+```
+
+[**Figure:** [USA Today, "How to Fall Asleep" (2026)](https://www.usatoday.com/story/life/health-wellness/2026/03/01/how-to-fall-asleep/88752448007/){.uri}]{style="font-size: 12px;"}
+
+## Data Description
+
+The data set used in this project is synthetic and consists of 374 observations and the following 13 variables (further description in the attached codebook)
+
+**Response Variable:**
+
+-   `Quality of Sleep` (numeric)
+
+**Predictor Variables:**
+
+-   `Gender`(categorical/binary)
+
+-   `Age` (numeric)
+
+-   `Occupation` (categorical)
+
+-   `Sleep Duration` (numeric)
+
+-   `Physical Activity Level` (numeric)
+
+-   `Stress Level` (numeric)
+
+-   `BMI Category` (categorical)
+
+-   `Blood Pressure` (numeric)
+
+-   `Heart Rate` (numeric)
+
+-   `Daily Steps` (numeric)
+
+-   `Sleep Disorder` (categorical)
+
+**Observation Variable:**
+
+-   `Person ID` (identifier, numbers our observations)
+
+So, we have 11 predictor variables that capture a wide range of health and lifestyle factors that are plausible predictors of `Quality of Sleep` (our response variable) in the `Sleep Health and Lifestyle` dataset.
+
+*(See cleaned predictor variables in attached [codebook](sleep_health%20and_lifestyle_codebook.txt) and formal citation of the dataset in [References](#references))*
+
+# Exploring our Data
+
+### Loading Packages and Data
+
+First, let's load in all of our packages and the raw `Sleep Health and Lifestyle` dataset.
+
+```{r}
+# Download necessary pacakages 
+library(tidymodels)
+library(tidyverse)
+library(knitr) # to assist in knitting process
+library(corrplot) # for the correlation plot
+library(ggplot2) # for most of the visualizations 
+library(tinytex) # to knit LaTex Functions 
+library(glmnet) # for elastic net regression model
+library(ranger) # for random forest model
+library(xgboost) # for boosted tree model
+library(vip) # for Variable Importance plot
+library(plotly)
+# Read data CSV and assign it to a variable
+sleep_raw <- read_csv("Sleep_health_and_lifestyle_dataset.csv", show_col_types = FALSE)
+```
+
+Now that we've loaded in our raw data, let's explore.
+
+```{r}
+glimpse(sleep_raw)
+names(sleep_raw)
+dim(sleep_raw)
+str(sleep_raw)
+head(sleep_raw$`BMI Category`, 10)
+head(sleep_raw$`Sleep Disorder`, 10)
+```
+
+This exploration of the raw dataset allows us to better understand its structure and variables using functions like `glimpse()`, `names()`, `dim()`, and `str()` to examine the number of observations, variable types, and overall layout of the data. This helped us confirm that the dataset has 374 observations and 13 variables, including numeric and categorical features. To get a better understanding of the values of specific variables before cleaning and modeling, we took a closer at `BMI Category` and `Sleep Disorder`.
+
+## **Data Cleaning**
+
+From exploring the raw dataset, I have determined that none of our variables should be eliminated, but that some must be cleaned so we can use them in our models later on. So, let's clean our data and convert any categorical variables to factors!
+
+First, let's convert the categorical variables, `Gender`, `Occupation`, `BMI Category`, and `Sleep Disorder` into factors because they describe qualitative groups and should not be treated as numeric predictors. Converting them to factor variables forces R to recognize them as categorical predictors so they can be transformed into dummy variables later in our recipe.
+
+```{r}
+# Convert categorical columns to factors 
+sleep_data <- sleep_raw %>% 
+  mutate(
+    Gender = factor(Gender),
+    Occupation = factor(Occupation),
+  `BMI Category` = factor(`BMI Category`),
+  `Sleep Disorder` = factor(`Sleep Disorder`)
+  )
+```
+
+Now, let's deal with the `Blood Pressure` variable. In our raw data, it is stored as a character string in the following form: "systolic/diastolic". But, regression models require numeric predictors, so let's split this variable into two separate variables, `Systolic` and `Diastolic` blood pressure. This preserves this health information and allows each component to be used as numeric and independent in our models.
+
+```{r}
+# Split blood pressure into numeric columns 
+sleep_data <- sleep_data %>%
+  separate(`Blood Pressure`, into = c("systolic", "diastolic"), sep = "/", convert = TRUE) %>% 
+  rename(
+    Systolic = systolic,
+    Diastolic = diastolic)
+```
+
+Next, `Person ID` is an observation variable. that uniquely identifies each observation in the dataset but does not contain meaningful information about `Quality of Sleep`. Because it is numeric, we need to convert it to an integer and keep it only as an identifier, not a predictor.
+
+```{r}
+# clean Person ID
+sleep_data <- sleep_data %>%
+  mutate(`Person ID` = as.integer(`Person ID`))
+```
+
+Next, we need to tidy the `Occupation` variable, so let's view and evaluate it.
+
+```{r}
+# View and evaluate occupation variable 
+count(sleep_raw, Occupation, sort = TRUE)
+```
+
+From this tibble, we can see `Occupation` contains 11 specific job titles, and some only appear a small number of times in the dataset. To improve interpretability, we will group these occupations into broader categories.
+
+```{r}
+# group the occupation variable for the cleaned dataset
+sleep_data <- sleep_data %>%
+  mutate(
+    `Occupation Group` = case_when(
+      Occupation %in% c("Doctor", "Nurse") ~ "Healthcare",
+      Occupation %in% c("Software Engineer", "Engineer") ~ "Technology",
+      Occupation %in% c("Sales Representative", "Salesperson") ~ "Sales",
+      Occupation %in% c("Teacher") ~ "Education",
+      TRUE ~ "Other"
+    ),
+    `Occupation Group` = factor(`Occupation Group`)
+  ) %>% 
+  select(-Occupation)
+# view the grouped occupation variable
+count(sleep_data, `Occupation Group`)
+```
+
+## Checking for Missing Data
+
+Now that we've cleaned our data, let's check for any missing data.
+
+```{r}
+# check for missing data after cleaning 
+missing_table <- sleep_data %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(everything(),
+               names_to = "Variable",
+               values_to = "Missing_Count") %>%
+  mutate(Percent_Missing = Missing_Count / nrow(sleep_raw) * 100)
+missing_table
+kable(missing_table, caption = "Missing Values by Variable")
+colSums(is.na(sleep_raw))
+```
+
+We have confirmed there are no missing values in the `Sleep Health and Lifestyle` dataset, so we can move forward with building our models!
+
+Before we move on, let's check our data!
+
+```{r}
+glimpse(sleep_data)
+dim(sleep_data)
+```
+
+This output confirms that the cleaned dataset contains 374 observations and 14 variables, and that the variables are correctly formatted with appropriate data types for further analysis and modeling.
+
+# Visual Exploratory Data Analysis (EDA) {#visual-exploratory-data-analysis-eda}
+
+Now, we will use EDA models to explore the relationships between predictor variables with the outcome as well as with the other predictor variables.
+
+## Distribution of Quality of Sleep (Histogram) {#distribution-of-quality-of-sleep-histogram}
+
+First, let's explore the distribution of the outcome, `Quality of Sleep`.
+
+```{r out.height = "75%", out.width = "75%"}
+# Histogram of Distribution of Quality of Sleep (Outcome Exploration)
+hist_qual_sleep <- ggplot(sleep_data, aes(x = `Quality of Sleep`)) + 
+  geom_histogram(binwidth = 1, fill = "steelblue", color = "white") + 
+  labs(
+    title = "Distribution of Quality of Sleep",
+    x = "Quality of Sleep Score",
+    y = "Count"
+  ) + 
+  theme_minimal()
+ggplotly(hist_qual_sleep)
+```
+
+```{r, echo=FALSE, results = "hide"}
+# values to further understand the distribution
+summary(sleep_data$`Quality of Sleep`)
+sleep_data %>%
+  count(`Quality of Sleep`)
+```
+
+Our outcome, `Quality of Sleep`, is measured on a scale of 1 to 10. From this histogram, we can clearly see that our actual data appears to range from 4 to 9 and is slightly left skewed with most observations between 6 and 8. While the most common score is 8, 6 is very close, which tells us this distribution is pretty bimodal. This histogram indicates that there are very few observations at the lowest quality sleep levels, meaning extremely poor sleep quality is relatively uncommon among individuals in the dataset.
+
+## Variable Correlation Plot
+
+Next, let's make a correlation matrix and then a heat map a of the numeric variables to gain a better understanding of their relationship.
+
+```{r}
+# Correlation Matrix (Predictor Relationships)
+# Selecting only numeric values
+sleep_numeric <- sleep_data %>%
+  select(
+    Age,
+    `Sleep Duration`,
+    `Quality of Sleep`,
+    `Physical Activity Level`,
+    `Stress Level`,
+    `Heart Rate`,
+    `Daily Steps`, 
+    Systolic, 
+    Diastolic
+  )
+cor_matrix <- cor(sleep_numeric)
+# Make the correlation plot
+corrplot(cor_matrix, method = "color",type = "lower", addCoef.col = "black", number.cex = 0.5, tl.cex = 0.6)
+```
+
+One relationship that stands out is the strong positive correlation between `Sleep Duration` and `Quality of Sleep` ($\approx$ 0.88), suggesting that individuals who sleep longer tend to report higher sleep quality. Another notable pattern is the strong negative correlation between `Stress Level` and both `Quality of Sleep` ($\approx$ -0.90) and `Sleep Duration` ($\approx$ -0.81), indicating that higher stress levels are associated with poorer and shorter sleep. Both of these relationships align with what I originally expected and the relationships in the second pattern are strengthened by the strong relationship between `Sleep Duration` and `Quality of Sleep`. These relationships suggest that `Sleep Duration` and `Stress Level` may be particularly important predictors when modeling `Quality of Sleep` later in this analysis.
+
+Further, `Heart Rate` and `Quality of Sleep` also stand out as they show a moderately strong negative relationship ($\approx$ -0.66), suggesting that physiological factors such as the `Heart Rate` may also influence sleep quality.
+
+One result that surprised me was the weak relationship between `Physical Activity Level` and `Quality of Sleep` ($\approx$ 0.19), as I initially suspected that they would have a strong positive relationship.
+
+## Sleep Duration vs. Quality of Sleep (Scatterplot) {#sleep-duration-vs.-quality-of-sleep-scatterplot}
+
+Since we discussed the relationship between `Sleep Duration` and `Quality of Sleep` in the correlation plot, it is important to take a closer look at the relationship between these variables.
+
+```{r out.height = "75%", out.width = "75%"}
+# Sleep Duration vs. Quality of Sleep Scatterplot 
+sleep_dur_vs_quality_scat <- ggplot(sleep_data, aes(x = `Sleep Duration`,
+                       y = `Quality of Sleep`)) + 
+  geom_point(alpha = 0.6) + 
+  geom_smooth(method = "lm", color = "darkblue") + 
+  labs(
+    title = "Sleep Duration vs. Quality of Sleep",
+    x = "Sleep Duration (hours)",
+    y = "Quality of Sleep"
+  ) + 
+  geom_jitter(width = 0.4, height = 0.4, size = 1) + 
+  theme_minimal()
+ggplotly(sleep_dur_vs_quality_scat)
+```
+
+This scatterplot confirms the positively correlated relationship between `Sleep Duration` and `Quality of Sleep` indicating that the amount of hours someone sleeps is related to their quality of sleep.
+
+## Stress Level vs. Quality of Sleep (Scatterplot) {#stress-level-vs.-quality-of-sleep-scatterplot}
+
+Since we discussed the relationship between `Stress Level` and `Quality of Sleep` in the correlation plot, it is important to take a closer look at the relationship between these variables.
+
+```{r out.height = "75%", out.width = "75%"}
+# Stress Level vs. Quality of Sleep 
+stress_level_vs_sleep_quality_scat <- ggplot(sleep_data, 
+       aes(x = `Stress Level`, 
+           y = `Quality of Sleep`)) + 
+  geom_point(alpha = 0.6) + 
+  geom_jitter(width = 0.4, height = 0.4, size = 1) + 
+  geom_smooth(method = "lm", color = "darkred") + 
+    labs(
+    title = "Stress Level vs. Quality of Sleep",
+    x = "Stress Level",
+    y = "Quality of Sleep"
+  ) + 
+  theme_minimal()
+ggplotly(stress_level_vs_sleep_quality_scat)
+```
+
+This scatterplot illustrates the negatively correlated relationship we found in the correlation plot between `Stress Level` and `Quality of Sleep`. This tells us that higher stress levels are correlated to a lower quality of sleep.
+
+## Sleep Disorder vs. Quality of Sleep (Percent Stacked Bar Chart) {#sleep-disorder-vs.-quality-of-sleep-percent-stacked-bar-chart}
+
+To better understand how `Sleep Disorder` status relates to `Quality of Sleep`, let's use a percent stacked bar chart to visualize the distribution of `Quality of Sleep` within each `Sleep Disorder` category (Sleep Apnea, Insomnia, or None). This type of chart allows us to compare the proportions of low, medium, and high sleep quality across groups while controlling for differences in the number of observations in each category.
+
+```{r out.height = "75%", out.width = "75%"}
+# Percent Stacked Bar Chart
+sleep_eda <- sleep_data %>%
+  mutate(sleep_quality_group = case_when(
+    `Quality of Sleep` <= 4 ~ "Low",
+    `Quality of Sleep` <= 7 ~ "Medium",
+    TRUE ~ "High"
+   )
+  )
+# Plot the percent stacked bar chart
+percent_stacked_barchart <- ggplot(sleep_eda, 
+       aes(x = `Sleep Disorder`, fill = sleep_quality_group)) + 
+  geom_bar(position = "fill") + 
+  labs(title = "Sleep Disorder vs. Quality of Sleep",
+       x = "Sleep Disorder", 
+       y = "Proportion", 
+        fill = "Sleep Quality") +
+  theme_minimal()
+ggplotly(percent_stacked_barchart)
+```
+
+This chart reveals clear differences in the distribution of `Quality of Sleep` across `Sleep Disorder` categories. Individuals without a sleep disorder appear to have the highest proportion of high `Quality of Sleep` outcomes and no low quality of sleep outcomes, while individuals with Insomnia have a much larger proportion of medium `Quality of Sleep` and very few high `Quality of Sleep` outcomes. Individuals with Sleep Apnea have a relatively balanced distribution between medium and high `Quality of Sleep` outcomes, and the most low `Quality of Sleep` outcomes. Overall, these differences suggest that `Sleep Disorder` status may be associated with variations in `Quality of Sleep`.
+
+# Setting up for the Models {#setting_up_for_the_models}
+
+Let's check and make sure all of our predictors are here and didn't get changed at all through our EDA.
+
+```{r}
+names(sleep_data)
+```
+
+## Data Split
+
+Now, it's time to split our data so that later we can evaluate how well our models generalize to new data. We will perform a 70/30 split on our data and split it into training and testing sets. We'll also stratify on our outcome variable, `Quality of Sleep`, to ensure that the distribution of the outcome variable remains similar in both the training and testing datasets.
+
+```{r}
+# Set Seed for Reproducibility 
+set.seed(123)
+
+# Split the Data (70/30 split, stratify on Quality of Sleep)
+sleep_split <- initial_split(sleep_data, prop = 0.7, strata = `Quality of Sleep`)
+sleep_train <- training(sleep_split)
+sleep_test <- testing(sleep_split)
+```
+
+Before moving on, we need to make sure that data split correctly!
+
+```{r}
+# Verify data split correctly 
+nrow(sleep_train)/nrow(sleep_data)
+nrow(sleep_test)/nrow(sleep_data)
+```
+
+The training set has about 70% of the data and the testing set has about 30% of the data, so the data was split correctly.
+
+## Recipe Creation
+
+For the recipe, we will use all of the same predictors as we used for the EDA, except this time we will exclude the predictor, `Person ID` since it is an identifier and is not used for prediction. We'll also convert categorical predictors to dummy variables to be compatible with regression models. We'll remove predictors with zero variance and normalize numeric predictors to ensure they are on comparable scales for modeling.
+
+```{r}
+# Creating recipe
+sleep_recipe <- recipe(`Quality of Sleep` ~ ., data = sleep_train) %>%
+  update_role(`Person ID`, new_role = "id") %>% # keep as identifier, not predictor
+  step_dummy(all_nominal_predictors()) %>% # change categorical factors to dummy variables 
+  step_zv(all_predictors()) %>% # remove zero variance predictors 
+  step_normalize(all_numeric_predictors()) # scale numeric predictors 
+```
+
+Check Recipe
+
+```{r}
+sleep_prep <- prep(sleep_recipe)
+sleep_baked <- bake(sleep_prep, new_data = NULL) 
+ncol(sleep_baked)
+names(sleep_baked)
+```
+
+## K-Fold Cross-Validation
+
+We will create 5 folds to conduct k-fold (5-fold in this case) stratified cross-validation. We'll choose 5 folds in this case because it allows the model to be tested several times while still keeping the process manageable. In 5-fold cross-validation, R divides the training dataset into 5 equal subsets. The model is then trained on k-1 folds and validated on the remaining fold, and this process repeats until each fold has been used as the validation set. The performance metrics are then averaged across all folds to provide a more reliable estimate of how the model is expected to perform on unseen data. We'll also stratify our cross-validation on our response variable, `Quality of Sleep` to ensure that each fold contains a similar distribution of the outcome variable and prevent imbalances across folds.
+
+```{r}
+set.seed(123) # set seed for reproducibility 
+sleep_folds <- vfold_cv(sleep_train, v = 5, strata = `Quality of Sleep`)
+sleep_folds
+```
+
+# Model Building {#model_building}
+
+We will use RMSE as our metric.
+
+```{r}
+sleep_metrics <- metric_set(rmse)
+```
+
+## Linear Regression
+
+Let's start off by using the linear regression model as a baseline model because it provides a simple and interpretable benchmark for evaluating how much more complex machine learning models improve predictive performance.
+
+1.  Set up the model by specifying a linear regression model, the parameters that need to be tuned (none in this case), the engine "lm", and the mode (regression) if necessary.
+
+```{r}
+lm_model <- linear_reg() %>% 
+  set_engine("lm")
+```
+
+2.  Set up the workflow for the model and add the model and the recipe.
+
+```{r}
+lm_wf <- workflow() %>%
+  add_model(lm_model) %>%
+  add_recipe(sleep_recipe)
+```
+
+3.  Create a tuning grid to specify the ranges of the parameters we need to tune as well as how many levels of each.
+
+```{r}
+# No tuning grid necessary since we didn't tune any parameters. 
+```
+
+4.  Tune the model and specify the workflow, k-fold cross-validation folds, and the tuning grid for our chosen parameters to tune.
+
+```{r}
+# No tuning, so not necessary. 
+```
+
+5.  Collect the metrics of the tuned model, arrange in ascending order of mean to see what the lowest RMSE for that tuned model is, and slice to choose only the lowest RMSE. Save the RMSE to a variable for comparison.
+
+```{r}
+# First, let's fit the linear regression model to the folds since it had no tuning.
+lm_fit <- fit_resamples(lm_wf, resamples = sleep_folds) 
+lm_rmse <- collect_metrics(lm_fit) %>% 
+  filter(.metric == "rmse") %>% 
+  slice(1) %>%
+  pull(mean)
+lm_rmse
+```
+
+6.  Autoplot
+
+```{r}
+# We didn't tune, so no need for an autoplot. 
+```
+
+## Elastic Net Regression
+
+Next, we'll fit an elastic net regression model because it combines ridge and lasso regularization, so it can manage correlated predictors while preventing overfitting. We'll tune the hyperparameters, penalty and mixture, to determine the optimal strength and type of regularization for the model.
+
+1.  Set up the model by specifying an elastic net regression model, the parameters that need to be tuned (penalty and mixture), the engine "glmnet", and the mode (regression) if necessary.
+
+```{r}
+enet_model <- linear_reg(
+  penalty = tune(),
+  mixture = tune()
+  ) %>%
+  set_engine("glmnet")
+```
+
+2.  Set up the workflow for the model and add the model and the recipe.
+
+```{r}
+enet_wf <- workflow() %>%
+  add_model(enet_model) %>%
+  add_recipe(sleep_recipe)
+```
+
+3.  Create a tuning grid to specify the ranges of the parameters we need to tune as well as how many levels of each.
+
+```{r}
+enet_grid <- grid_regular(
+  penalty(),
+  mixture(),
+  levels = 5
+  )
+enet_grid
+```
+
+4.  Tune the model and specify the workflow, k-fold cross-validation folds, and the tuning grid for our chosen parameters to tune.
+
+```{r}
+set.seed(123) # set seed for reproducibility 
+enet_tune <- tune_grid(
+  enet_wf, 
+  resamples = sleep_folds,
+  grid = enet_grid
+  )
+enet_tune
+```
+
+5.  Collect the metrics of the tuned model, arrange in ascending order of mean to see what the lowest RMSE for that tuned model is, and slice to choose only the lowest RMSE. Save the RMSE to a variable for comparison. Model an autoplot
+
+```{r}
+show_best(enet_tune, metric = "rmse", n = 1) # tells us row # for lowest RMSE for slice() 
+enet_rmse <- collect_metrics(enet_tune) %>%
+  filter(.metric == "rmse") %>%
+  arrange(mean) %>%
+  slice(1) %>% 
+  pull(mean)
+enet_rmse
+```
+
+6.  Autoplot to visualize how the cross-validated RMSE changes across different values of the tuning parameters, allowing us to identify which combinations of penalty and mixture produce the best predictive performance.
+
+```{r}
+autoplot(enet_tune, metric = "rmse")
+```
+
+From the autoplot, we can see that models with smaller values of the penalty parameter generally produce lower RMSE values, indicating that weaker regularization performs better for this dataset. As the penalty increases, RMSE significantly increases, suggesting that predictive accuracy is harmed by too much regularization. The mixture parameter tells us that smaller values tend to yield lower RMSE compared to values closer to pure lasso. This plot helps identify the tuning parameter combination that minimizes RMSE and was selected as the best elastic net model.
+
+## Decision Tree
+
+We'll fit a decision tree model because it can capture nonlinear relationships and interactions between predictors. We'll tune the hyperparameters, cost_complexity, tree_depth, and min_n to control model complexity and prevent overfitting by determining how large and detailed the tree is allowed to grow.
+
+1.  Set up the model by specifying a decision tree model, the parameters that need to be tuned (cost_complexity, tree_depth, and min_n), the engine "rpart", and the mode (regression) if necessary.
+
+```{r}
+dtree_model <- decision_tree(
+  cost_complexity = tune(),
+  tree_depth = tune(),
+  min_n = tune()
+  ) %>% 
+  set_engine("rpart") %>%
+  set_mode("regression")
+```
+
+2.  Set up the workflow for the model and add the model and the recipe.
+
+```{r}
+dtree_wf <- workflow() %>%
+  add_model(dtree_model) %>%
+  add_recipe(sleep_recipe)
+```
+
+3.  Create a tuning grid to specify the ranges of the parameters we need to tune as well as how many levels of each.
+
+```{r}
+dtree_grid <- grid_regular(
+  cost_complexity(),
+  tree_depth(),
+  min_n(),
+  levels = 4
+  )
+dtree_grid
+```
+
+4.  Tune the model and specify the workflow, k-fold cross-validation folds, and the tuning grid for our chosen parameters to tune.
+
+```{r}
+set.seed(123) # set seed for reproducibility 
+dtree_tune <- tune_grid(
+  dtree_wf, 
+  resamples = sleep_folds,
+  grid = dtree_grid
+  )
+dtree_tune
+```
+
+5.  Collect the metrics of the tuned model, arrange in ascending order of mean to see what the lowest RMSE for that tuned model is, and slice to choose only the lowest RMSE. Save the RMSE to a variable for comparison.
+
+```{r}
+dtree_rmse <- collect_metrics(dtree_tune) %>%
+  filter(.metric == "rmse") %>%
+  arrange(mean) %>%
+  slice(1) %>% 
+  pull(mean)
+dtree_rmse
+```
+
+6.  Autoplot to visualize how the cross-validated RMSE changes across different values of the tuning parameters, allowing us to identify which combinations of the tuning parameters produce the best predictive performance.
+
+```{r}
+autoplot(dtree_tune, metric = "rmse")
+```
+
+The autoplot shows us that RMSE tends to be lowest when the cost-complexity parameter is small, which indicates that stronger pruning increases prediction error. Models with moderate tree depth generally perform better than very shallow trees, which appear to underfit the data. Differences across minimal node sizes are relatively small, although some configurations show slightly lower RMSE than others. Overall, this visualization helps identify the combination of tuning parameters that minimizes RMSE and will be selected as the best decision tree model.
+
+## Random Forest
+
+We'll fit a random forest model because it improves predictive accuracy by averaging many decision trees, reducing variance and overfitting. We'll tune the hyperparameters, mtry, and min_n, to control how many predictors are considered at each split and the minimum number of observations required in each node, which influence the complexity and performance of the model.
+
+1.  Set up the model by specifying a random forest model, the parameters that need to be tuned (mtry, min_n) , the engine "ranger", and the mode (regression) if necessary.
+
+```{r}
+rf_model <- rand_forest(
+  mtry = tune(),
+  min_n = tune(),
+  trees = 500
+  ) %>%
+  set_engine('ranger', importance = "impurity") %>%
+  set_mode('regression')
+```
+
+2.  Set up the workflow for the model and add the model and the recipe.
+
+```{r}
+rf_wf <- workflow() %>%
+  add_model(rf_model) %>%
+  add_recipe(sleep_recipe)
+```
+
+3.  Create a tuning grid to specify the ranges of the parameters we need to tune as well as how many levels of each.
+
+```{r}
+# first, lets get the true number of predictors so we can set the range for mtry. 
+num_pred <- sleep_baked %>%
+  select(-`Quality of Sleep`, - `Person ID`) %>%
+  ncol()
+num_pred 
+rf_grid <- grid_regular(
+  mtry(range = c(1, num_pred)),
+  min_n(),
+  levels = 4
+  )
+rf_grid
+```
+
+4.  Tune the model and specify the workflow, k-fold cross-validation folds, and the tuning grid for our chosen parameters to tune.
+
+```{r}
+set.seed(123) # set seed for reproducibility 
+rf_tune <- tune_grid(
+  rf_wf, 
+  resamples = sleep_folds,
+  grid = rf_grid,
+  metrics = metric_set(rmse)
+  )
+rf_tune
+```
+
+5.  Collect the metrics of the tuned model, arrange in ascending order of mean to see what the lowest RMSE for that tuned model is, and slice to choose only the lowest RMSE. Save the RMSE to a variable for comparison.
+
+```{r}
+show_best(rf_tune, metric = "rmse", n=1) # tells us row # for lowest RMSE for slice()
+rf_rmse <- collect_metrics(rf_tune) %>%
+  filter(.metric == "rmse") %>%
+  arrange(mean) %>% 
+  slice(1) %>%
+  pull(mean)
+rf_rmse
+```
+
+6.  Autoplot to visualize how the cross-validated RMSE changes across different values of the tuning parameters, allowing us to identify which combinations of the tuning parameters produce the best predictive performance.
+
+```{r}
+autoplot(rf_tune, metric = "rmse")
+```
+
+The plot shows us that RMSE tends to be lowest when the cost-complexity parameter is small, which indicates that stronger pruning increases prediction error. Models with moderate tree depth generally perform better than very shallow trees, which appear to underfit the data. Differences across minimal node sizes are relatively small, although some configurations show slightly lower RMSE than others. Overall, this visualization helps identify the combination of tuning parameters that minimizes RMSE and will be selected as the best decision tree model.
+
+## Boosted Tree
+
+We'll fit the boosted tree model because it sequentially builds trees that learn from the errors of previous trees, allowing the model to capture complex patterns in the data. We'll tune the hyperparameters trees, tree_depth, learn_rate, and min_n to control the number of trees, the complexity of each tree, the speed at which the model learns, and the minimum observations required in each node to optimize predictive performance and prevent overfitting.
+
+1.  Set up the model by specifying a boosted tree model, the parameters that need to be tuned (trees, tree_depth, learn_rate, min_n) , the engine "xgboost", and the mode (regression) if necessary.
+
+```{r}
+boost_model <- boost_tree(
+  trees = tune(),
+  tree_depth = tune(),
+  learn_rate = tune(),
+  min_n = tune()
+  ) %>%
+  set_engine("xgboost") %>%
+  set_mode("regression")
+```
+
+2.  Set up the workflow for the model and add the model and the recipe.
+
+```{r}
+boost_wf <- workflow() %>%
+  add_model(boost_model) %>%
+  add_recipe(sleep_recipe)
+```
+
+3.  Create a tuning grid to specify the ranges of the parameters we need to tune as well as how many levels of each.
+
+```{r}
+boost_grid <- grid_regular(
+  trees(range = c(100,500)),
+  tree_depth(),
+  learn_rate(),
+  min_n(), 
+  levels = 3
+  )
+boost_grid
+```
+
+4.  Tune the model and specify the workflow, k-fold cross-validation folds, and the tuning grid for our chosen parameters to tune.
+
+```{r}
+set.seed(123) # set seed for reproducibility 
+boost_tune <- tune_grid(
+  boost_wf, 
+  resamples = sleep_folds,
+  grid = boost_grid,
+  metrics = metric_set(rmse)
+  )
+boost_tune
+```
+
+5.  Collect the metrics of the tuned model, arrange in ascending order of mean to see what the lowest RMSE for that tuned model is, and slice to choose only the lowest RMSE. Save the RMSE to a variable for comparison.
+
+```{r}
+show_best(boost_tune, metric = "rmse", n = 1) # tells us row # for lowest RMSE for slice() 
+boost_rmse <- collect_metrics(boost_tune) %>%
+  filter(.metric == "rmse") %>%
+  arrange(mean) %>%
+  slice(1) %>%
+  pull(mean)
+boost_rmse
+```
+
+6.  Autoplot to visualize how the cross-validated RMSE changes across different values of the tuning parameters, allowing us to identify which combinations of the tuning parameters produce the best predictive performance.
+
+```{r}
+autoplot(boost_tune, metric = "rmse")
+```
+
+The plot shows us that models with extremely small learning rates perform poorly, producing very large RMSE values regardless of the number of trees or tree depth. Models with a higher learning rate show much lower RMSE, indicating better predictive performance. Increasing the number of trees slightly improves performance but does not dramatically change RMSE once a sufficient number of trees is used. Differences across tree depth and minimal node size appear relatively small. Overall, this plot helps identify the combination of tuning parameters that minimizes RMSE of the best boosted tree model.
+
+# Model Results {#model_results}
+
+Let's see how our models performed!
+
+## Model Comparison and Evaluation
+
+In order to summarize the best RMSE values from our 5 models, we will create a tibble to display the performance of our models as measure by the RMSE. The lower the RMSE, the better the model has performed.
+
+Create a tibble of all models and their RMSE.. The best model is the ones with the lowest RMSE. So let's organize them by best to worst so we can use the best model to predict our testing set.
+
+```{r}
+# create comparison tibble
+comparison_tibble <- tibble(
+  Model = c("Linear Regression", "Elastic Net Regression", "Decision Tree", "Random Forest", "Boosted Trees" ),
+  RMSE = c(lm_rmse, enet_rmse, dtree_rmse, rf_rmse, boost_rmse)
+  )
+comparison_tibble %>% 
+  arrange(RMSE)
+```
+
+The comparison tibble shows us that the model with the lowest RMSE is the Boosted Tree model ($\approx$ 0.155), indicating this model has the best predictive performance. So, we will use the Boosted Tree model for final evaluation on the the testing set.
+
+The comparison tibble shows us that the model with the second lowest RMSE is the Random Forest model ($\approx$ 0.163), indicating this model has the second best predictive performance.
+
+## Compare Boosted Trees and Random Forest Models Across Folds
+
+Let's compare our models and make sure Boosted Trees is better than Random Forest since their lowest RMSE values are very close. We'll use a boxplot to compare across folds.
+
+```{r out.height = "75%", out.width = "75%"}
+boost_fold_rmse <- collect_metrics(boost_tune, summarize = FALSE) %>%
+  filter(.metric == "rmse") %>%
+  select(id, .estimate) %>%
+  mutate(Model = "Boosted Tree")
+rf_fold_rmse <- collect_metrics(rf_tune, summarize = FALSE) %>%
+  filter(.metric == "rmse") %>%
+  select(id, .estimate) %>%
+  mutate(Model = "Random Forest")
+
+fold_rmse_compare <- bind_rows(boost_fold_rmse, rf_fold_rmse)
+
+boxplot_compare <- ggplot(fold_rmse_compare, aes(x = Model, y = .estimate, fill = Model)) + 
+  geom_boxplot(alpha = 0.8) + 
+  labs(title = "RMSE Fold Comparison Boxplot",
+       x = "Model",
+       y = "RMSE") +
+  theme_minimal()
+ggplotly(boxplot_compare)
+```
+
+The boosted tree model shows a wider spread of RMSE values across folds, indicating that its predictive performance varies more depending on the specific training split. This occurs because boosted trees build models sequentially and can be more sensitive to small changes in the training data. The random forest model, on the other hand, averages predictions across many independent trees, which reduces variance and results in more stable performance across folds. This plot ultimately shows that the boosted tree model is slightly more accurate but more variable than the random forest model. We'll train and test both of these models to see which is a better predictive model for `Quality of Sleep`.
+
+## Results of the Best Models
+
+Since the Boosted Tree model has the lowest RMSE and the Random Forest model's RMSE is very close and has less error, we will use both of these models..
+
+### Which tuned parameters were chosen as the best?
+
+**Boosted Tree**
+
+```{r}
+# collecting metrics on the tuned boosted tree model and slicing on the lowest RMSE
+boost_results <- boost_tune %>%
+  collect_metrics() %>% 
+  filter(.metric == "rmse") %>%
+  arrange(mean) %>%
+  slice(1)
+boost_results
+which.min(boost_results$mean)
+```
+
+So, Boosted Tree #1 with trees = 300, min_n = 2, tree_depth = 8, and learn_rate = 0.1, performed the best with a cross-validated RMSE of $\approx$ 0.155.
+
+**Random Forest**
+
+```{r}
+# collecting metrics on the tuned random forest and slicing on the lowest RMSE 
+rf_results <- rf_tune %>%
+  collect_metrics() %>% 
+  filter(.metric == "rmse") %>%
+  arrange(mean) %>%
+  slice(1)
+rf_results
+which.min(rf_results$mean)
+```
+
+So, Random Forest #1 with mtry = 18 predictors considered at each split and a minimum node size (min_n) of 2, performed the best with a cross-validated RMSE of $\approx$ 0.1633.
+
+## Fitting to Training Data
+
+**Boosted Tree**
+
+Now, we will take the best model from the tuned Boosted Tree (#1) and fit it to the training data to train the Boosted Tree model one more time on the entire training dataset. Once we fit and train the boosted tree on the training data, it will be ready for testing.
+
+```{r}
+set.seed(123)
+# Finalize Best Boosted Trees Model
+best_boost_train <- select_best(boost_tune, metric = "rmse")
+boost_final_wf_train <- finalize_workflow(boost_wf, best_boost_train)
+
+# Fit model to the training data 
+boost_final_fit_train <- fit(boost_final_wf_train, data = sleep_train)
+```
+
+**Random Forest**
+
+Now, we will take the best model from the tuned Random Forest (#1) and fit it to the training data to train the Random Forest model one more time on the entire training dataset. Once we fit and train the random forest on the training data, it will be ready for testing.
+
+```{r}
+set.seed(123)
+# Finalize best Random Forest Model
+best_rf_train <- select_best(rf_tune, metric = "rmse")
+rf_final_wf_train <- finalize_workflow(rf_wf, best_rf_train)
+
+# Fit model to the training data 
+rf_final_fit_train <- fit(rf_final_wf_train, data = sleep_train)
+```
+
+### Training Predictions and RMSE
+
+Now, we will take the best boosted tree and random forest model and fit them to the training data. Once we have fit and trained these models, they will be ready for testing!
+
+**Boosted Tree**
+
+```{r}
+sleep_tibble_boost_train <- predict(
+  boost_final_fit_train, new_data = sleep_train %>%
+    select(-`Quality of Sleep`)) %>%
+  bind_cols(sleep_train %>% select(`Quality of Sleep`))
+sleep_tibble_boost_train
+
+boost_train_rmse <- rmse(
+  sleep_tibble_boost_train,
+  truth = `Quality of Sleep`,
+  estimate = .pred
+) %>%
+  pull(.estimate)
+boost_train_rmse
+```
+
+**Random Forest**
+
+```{r}
+sleep_tibble_rf_train <- predict(
+  rf_final_fit_train, new_data = sleep_train %>%
+    select(-`Quality of Sleep`)) %>% 
+  bind_cols(sleep_train %>% select(`Quality of Sleep`))
+sleep_tibble_rf_train 
+
+rf_train_rmse <- rmse(
+  sleep_tibble_rf_train,
+  truth = `Quality of Sleep`,
+  estimate = .pred
+) %>%
+  pull(.estimate)
+rf_train_rmse
+```
+
+## Testing the Models
+
+Now, it's time to test the models to see how they perform on the testing data that has not been trained at all.
+
+### Testing Predictions and RMSE
+
+Let's take the best boosted tree and random forest model, test them on the testing data, and extract the testing RMSE.
+
+**Boosted Tree**
+
+```{r}
+sleep_tibble_boost_test <- predict(
+  boost_final_fit_train, new_data = sleep_test %>%
+    select(-`Quality of Sleep`)) %>%
+  bind_cols(sleep_test %>% select(`Quality of Sleep`))
+sleep_tibble_boost_test
+
+boost_test_rmse <- rmse(
+  sleep_tibble_boost_test,
+  truth = `Quality of Sleep`,
+  estimate = .pred
+) %>%
+  pull(.estimate)
+boost_test_rmse
+```
+
+**Random Forest**
+
+```{r}
+sleep_tibble_rf_test <- predict(
+  rf_final_fit_train, new_data = sleep_test %>%
+    select(-`Quality of Sleep`)) %>% 
+  bind_cols(sleep_test %>% select(`Quality of Sleep`))
+sleep_tibble_rf_test 
+
+rf_test_rmse <- rmse(
+  sleep_tibble_rf_test,
+  truth = `Quality of Sleep`,
+  estimate = .pred
+) %>%
+  pull(.estimate)
+rf_test_rmse
+```
+
+### Testing Error
+
+Let's compare the testing error of our best models! A lower testing RMSE indicates that a model's predictions are closer to the actual values and that the model generalizes better to new observations.
+
+```{r}
+testing_error <- tibble(
+  Model = c("Boosted Tree", "Random Foret"),
+  test_rmse = c(boost_test_rmse, rf_test_rmse)
+)
+testing_error
+```
+
+The random forest model achieves a lower testing RMSE (0.327) compared to the boosted tree model (0.397), indicating better predictive performance on unseen data.
+
+# Determine the True Best Model {#determine_the_true_best_model}
+
+Now that we've tested both models, let's compare how they perform compared to the actual data and eachother overall by looking at the generalization gap between the training and testing RMSE for each of our models.
+
+```{r}
+final_model_comparison <- tibble(
+  Model = c("Boosted Tree", "Random Forest"),
+  `Cross-Validation RMSE` = c(boost_rmse, rf_rmse),
+  `Training RMSE` = c(boost_train_rmse, rf_train_rmse),
+  `Testing RMSE` = c(boost_test_rmse, rf_test_rmse)) %>%
+  mutate(`Generalization Gap` = `Testing RMSE` - `Training RMSE`)
+final_model_comparison
+```
+
+Although the boosted tree model achieved the lowest cross-validation (0.155) and training RMSE (0.0012), its testing RMSE (0.397) is much higher indicating overfitting. The random forest model has a slightly higher cross-validation RMSE (0.163) but a lower testing RMSE (0.327) and a smaller increase from training to testing error (0.260 versus 0.396), suggesting it generalizes better to unseen data. Overall, this suggests that the random forest model performs the best at predicting `Quality of Sleep` based on the lifestyle and physiological factors included in the dataset, and thus, we will select the **random forest model as the final model.**
+
+## Predicted Quality of Sleep vs. Actual Quality of Sleep Plot
+
+Let's look at a plot of the predicted values vs. actual values:
+
+```{r}
+sleep_tibble_rf_test %>%
+  ggplot(aes(x = `Quality of Sleep`, y = .pred )) + 
+  geom_point(color = "steelblue", alpha = 0.6, position = position_jitter(width = 0.3, height = 0.1)) + 
+  geom_abline(lty = 2) + 
+  labs(
+    title = "Predicted vs Actual Quality of Sleep",
+    x = "Actual Quality of Sleep", 
+    y = "Predicted Quality of Sleep"
+  ) + 
+  theme_minimal() 
+```
+
+If the model were perfect, every point would lie on the dashed line. This plot shows us that the majority of data lies either on or very close to the line, telling us that the model's predictions are very close to the actual values and thus the model performs well overall.
+
+## Variable Importance Plot
+
+Random forest models can also tell us which variables are the most important in predicting the outcome. We can see this in a variable importance plot (VIP), so let's make the plot!
+
+```{r}
+rf_final_fit_train %>%
+  extract_fit_engine() %>%
+  vip(aesthetics = list(fill = "red", color = "blue"))
+```
+
+From the VIP, we can see that the variable that was most important in predicting the `Quality of Sleep` was `Stress Level`. The second most important variable was `Sleep Duration`, which is what I had initially expected would be the most important predictor. The rest of the predictors were significantly less important than `Stress Level` which makes sense because I feel like I to get lower quality sleep when I am more stressed and higher quality sleep when I am less stressed.
+
+```{r, echo = FALSE}
+knitr::include_graphics("reduce_stress.png")
+```
+
+[**Figure:** [National Fund for Workforce Solutions, "Recognizing and Reducing Stress in the Workplace" (2022)](https://nationalfund.org/recognizing-and-reducing-stress-in-the-workplace/){.uri}]{style="font-size: 12px;"}
+
+# Conclusion {#conclusion}
+
+In this project, I built and compared multiple models to predict `Quality of Sleep` using health and lifestyle variables. After tuning and evaluating Linear Regression, Elastic Net, Decision Tree, Random Forest, and Boosted Trees, the Random Forest and Boosted Tree models stood out as the strongest performers based on their cross-validation RMSE. Although the Boosted Tree model achieved the lowest cross-validated RMSE, further evaluation revealed that it significantly overfit the training data, as shown by its extremely low training RMSE and much higher testing RMSE. In contrast, the Random Forest achieved a lower testing RMSE, indicating better performance on unseen data. The predicted vs. actual plot further supported this result, as the Random Forest predictions closely followed the 45-degree reference line, showing a relatively strong alignment between predicted and actual values. While there is some spread in the mid-range values, the model performs well overall. The variable importance plot also showed us that `Stress Level` is the best predictor of `Quality of Sleep` in our dataset.
+
+Overall, the Random Forest model was selected as the final model because it balances accuracy and generalizability, making it the most reliable for predicting `Quality of Sleep`. While the current models performed well, there are several opportunities for future improvement. We could incorporate additional features such as screen time and more detailed health metrics which could improve predictive performance. We also could explore more advanced models or tune hyperparameters further which may lead to even better results. In the future, we could also include testing the model on different datasets (perhaps real data instead of synthetic) and retraining it over time to evaluate its validity and generalizability across populations.
+
+This project was a great opportunity to gain hands-on experience with machine learning models and helped me improve my skills. Additionally, now that I've determined that `Stress Level` is the most important predictor of `Quality of Sleep`, I will try to make changes in my life to lower my stress level and get better sleep. I learned a lot throughout the process of cleaning the data, conducting EDA, building and testing models and I'm proud of my final results. I look forward to continuing to build and improve my modeling skills in the future!
+
+# References {#references}
+
+"Sleep Health and Lifestyle Dataset", Kaggle, Laksika Tharmalingam (2023), <https://www.kaggle.com/datasets/uom190346a/sleep-health-and-lifestyle-dataset>
