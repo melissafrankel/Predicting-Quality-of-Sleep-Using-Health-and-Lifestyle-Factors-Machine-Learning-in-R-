@@ -5,7 +5,7 @@ Built an end-to-end ML pipeline to predict **Quality of Sleep** and identify key
 [Full Project](https://rpubs.com/melissafrankel/1413578)
 
 ## View Codebook
-[Codebook](
+[Codebook](https://github.com/melissafrankel/Predicting-Quality-of-Sleep-Using-Health-and-Lifestyle-Factors-Machine-Learning-in-R-/blob/main/sleep_health%20and_lifestyle_codebook.txt)
 
 ## Overview
 The goal of this project is to identify key drivers of sleep quality and evaluate whether making changes in lifestyle or health factors can meaningfully improve it. 
