@@ -1,5 +1,8 @@
 ## Predicting Quality of Sleep Using Health and Lifestyle Factors (Machine Learning in R)
 Built an end-to-end ML pipeline to predict **Quality of Sleep** and identify key lifestyle drivers using R, achieving ~0.326 RMSE on test data.
+
+## View Full Project
+[Full Project](https://rpubs.com/melissafrankel/1413578)
 ## Overview
 The goal of this project is to identify key drivers of sleep quality and evaluate whether making changes in lifestyle or health factors can meaningfully improve it. 
 
