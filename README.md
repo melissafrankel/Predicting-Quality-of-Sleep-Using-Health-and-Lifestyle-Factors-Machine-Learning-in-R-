@@ -3,6 +3,7 @@ Built an end-to-end ML pipeline to predict **Quality of Sleep** and identify key
 
 ## View Full Project
 [Full Project](https://rpubs.com/melissafrankel/1413578)
+
 ## Overview
 The goal of this project is to identify key drivers of sleep quality and evaluate whether making changes in lifestyle or health factors can meaningfully improve it. 
 
@@ -13,6 +14,7 @@ Key Questions:
 
 ## Dataset 
 - Source: Kaggle Sleep Health and Lifestyle Dataset
+  This dataset was obtained from Kaggle and is used for educational and portfolio purposes.
 - Response Variable:
   -  Quality of Sleep (numeric)
 - Predictor Variables:
